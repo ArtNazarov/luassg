@@ -1,0 +1,5 @@
+<product id="firstProduct">
+	<name>Товар 1</name>
+	<price>100</price>
+	<caption>Описание</caption>
+</product>
