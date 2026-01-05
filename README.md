@@ -22,12 +22,13 @@ Global constants can be defined in `./data/CONST.xml` file with the following fo
     <AUTHOR>John Doe</AUTHOR>
     <YEAR>2026</YEAR>
     <FOOTER_TEXT>All rights reserved</FOOTER_TEXT>
-</CONST>```
+</CONST>
+```
 
 Use constants in templates with double underscore syntax: `__CONST.CONSTNAME__`
 
 Example in template:
-```html
+```
 <footer>
     © __CONST.YEAR__ __CONST.AUTHOR__ - __CONST.FOOTER_TEXT__
 </footer>
