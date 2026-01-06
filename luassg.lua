@@ -4,6 +4,52 @@ function authorInfo()
     print("Author: Nazarov A.A., Russia, Orenburg, 2026")
 end 
 
+function showHelp()
+    print("luassg - Static Site Generator")
+    print("===============================")
+    print("Usage: lua luassg.lua [OPTION]")
+    print()
+    print("Options:")
+    print("  -h, --help     Show this help message")
+    print("  -v, --version  Show version and author information")
+    print()
+    print("Description:")
+    print("  Generates static HTML pages from templates and XML data files.")
+    print("  Templates are stored in ./templates/ directory as .html files.")
+    print("  Data files are stored in ./data/[entity]/ directory as .xml files.")
+    print("  Constants can be defined in ./data/CONST.xml file.")
+    print()
+    print("Example:")
+    print("  lua luassg.lua           # Generate the site")
+    print("  lua luassg.lua --help    # Show this help")
+    print("  lua luassg.lua --version # Show version info")
+    print()
+    authorInfo()
+end
+
+function showVersion()
+    print("luassg - Static Site Generator v1.0")
+    print("=====================================")
+    authorInfo()
+end
+
+-- Check for command line arguments
+local args = {...}
+if #args > 0 then
+    local arg = args[1]
+    if arg == "-h" or arg == "--help" then
+        showHelp()
+        return
+    elseif arg == "-v" or arg == "--version" then
+        showVersion()
+        return
+    else
+        print("Unknown option: " .. arg)
+        print("Try 'lua luassg.lua --help' for more information.")
+        return
+    end
+end
+
 function dump(o, indent)
     indent = indent or 0
     local spacing = string.rep("  ", indent)
@@ -19,6 +65,11 @@ function dump(o, indent)
     else
         return tostring(o)
     end
+end
+
+-- Get current time in milliseconds
+local function getTimeMs()
+    return os.clock() * 1000
 end
 
 -- Synchronous file write function
@@ -48,6 +99,7 @@ function writeAsync(files)
 end
 
 function parseConstants()
+    local start_time = getTimeMs()
     local const_file = "./data/CONST.xml"
     local f = io.open(const_file, "r")
     if not f then
@@ -79,28 +131,13 @@ function parseConstants()
         end
     )
     
+    local end_time = getTimeMs()
+    print(string.format("  (Parsed in %.2f ms)", end_time - start_time))
+    
     return constants
 end
 
-function replaceConstants(template, constants)
-    local html = template
-    
-    -- Replace all occurrences of __CONST.VALUENAME__
-    for const_name, const_value in pairs(constants) do
-        local pattern = "__CONST%." .. const_name .. "__"
-        html = html:gsub(pattern, const_value)
-    end
-    
-    return html
-end
-
-function parseSingleEntity(filename)
-    local f = io.open(filename, "r")
-    if not f then
-        return nil
-    end
-    local content = f:read("*a")
-    f:close()
+function parseSingleEntity(filename, content)
     local entity = {
         tag = nil,
         fields = {},
@@ -137,40 +174,164 @@ function parseSingleEntity(filename)
     return entity
 end
 
-function render(template, entity, constants)
-    -- First replace CONST values
-    local html = replaceConstants(template, constants)
-    
-    -- Then replace entity fields and attributes
-    for field, value in pairs(entity.fields) do
-        local placeholder = "{" .. entity.tag .. "." .. field .. "}"
-        html = html:gsub(placeholder, value)
-    end
-    for attr, value in pairs(entity.attrs) do
-        local placeholder = "{" .. entity.tag .. "." .. attr .. "}"
-        html = html:gsub(placeholder, value)
-    end
-    return html
-end
-
-function scandir(directory)
-    local t = {}
-    local pfile = io.popen("ls -1 " .. directory .. " 2>/dev/null")
-    if pfile then
-        for filename in pfile:lines() do
-            if filename:match("%.xml$") then
-                table.insert(t, filename)
+-- Function to get all entity directories (subfolders in ./data)
+local function getEntityDirectories()
+    local entities = {}
+    local handle = io.popen('ls -d ./data/*/ 2>/dev/null | sed "s|/$||"')
+    if handle then
+        for dir in handle:lines() do
+            local entity_name = dir:match("^./data/(.+)$")
+            if entity_name and entity_name ~= "." and entity_name ~= ".." and entity_name ~= "" then
+                table.insert(entities, entity_name)
             end
         end
-        pfile:close()
+        handle:close()
     end
-    return t
+    return entities
+end
+
+-- Function to read all templates
+local function readTemplates()
+    local templates = {}
+    local template_count = 0
+    local start_time = getTimeMs()
+    local handle = io.popen('find "./templates" -name "*.html" 2>/dev/null')
+    if handle then
+        for filepath in handle:lines() do
+            local file = io.open(filepath, "r")
+            if file then
+                local template_name = filepath:match("^./templates/(.+)%.html$")
+                if template_name then
+                    templates[template_name] = {
+                        filename = filepath,
+                        content = file:read("*a")
+                    }
+                    template_count = template_count + 1
+                end
+                file:close()
+            end
+        end
+        handle:close()
+    end
+    local end_time = getTimeMs()
+    print(string.format("  (Read in %.2f ms)", end_time - start_time))
+    return templates, template_count
+end
+
+-- Function to read all XML files in a directory
+local function readAllXMLFiles(dir_path)
+    local files = {}
+    local start_time = getTimeMs()
+    local handle = io.popen('find "' .. dir_path .. '" -name "*.xml" 2>/dev/null')
+    if handle then
+        for filepath in handle:lines() do
+            local file = io.open(filepath, "r")
+            if file then
+                table.insert(files, {
+                    filename = filepath,
+                    content = file:read("*a")
+                })
+                file:close()
+            end
+        end
+        handle:close()
+    end
+    local end_time = getTimeMs()
+    return files, end_time - start_time
+end
+
+-- Function to process a single entity type
+local function processEntityType(entity_name, template, constants)
+    local filesToWrite = {}
+    local total_processing_time = 0
+    local file_count = 0
+    
+    print("Processing entity: " .. entity_name)
+    
+    -- Read all XML files for this entity
+    local data_dir = "./data/" .. entity_name
+    local data_files, read_time = readAllXMLFiles(data_dir)
+    
+    print("  Found " .. #data_files .. " data files in " .. data_dir .. string.format(" (read in %.2f ms)", read_time))
+    
+    -- List all files found
+    for _, data_file in ipairs(data_files) do
+        print("    - " .. data_file.filename)
+    end
+    
+    -- Process each data file
+    for _, data_file in ipairs(data_files) do
+        local file_start_time = getTimeMs()
+        
+        local entity = parseSingleEntity(data_file.filename, data_file.content)
+        
+        if entity and entity.tag == entity_name then
+            -- First replace CONST values
+            local html = template.content
+            for const_name, const_value in pairs(constants) do
+                local pattern = "__CONST%." .. const_name .. "__"
+                html = html:gsub(pattern, const_value)
+            end
+            
+            -- Then replace entity fields and attributes
+            for field, value in pairs(entity.fields) do
+                local placeholder = "{" .. entity.tag .. "." .. field .. "}"
+                html = html:gsub(placeholder, value)
+            end
+            for attr, value in pairs(entity.attrs) do
+                local placeholder = "{" .. entity.tag .. "." .. attr .. "}"
+                html = html:gsub(placeholder, value)
+            end
+            
+            local output_filename = "./output/" .. entity_name .. "-" .. (entity.attrs.id or "unknown") .. ".html"
+            
+            local file_end_time = getTimeMs()
+            local processing_time = file_end_time - file_start_time
+            total_processing_time = total_processing_time + processing_time
+            file_count = file_count + 1
+            
+            print(string.format("    Generating: %s (%.2f ms)", output_filename, processing_time))
+            
+            table.insert(filesToWrite, {
+                filename = output_filename,
+                content = html
+            })
+        else
+            local file_end_time = getTimeMs()
+            local processing_time = file_end_time - file_start_time
+            total_processing_time = total_processing_time + processing_time
+            file_count = file_count + 1
+            
+            if entity then
+                print(string.format("    WARNING: Entity tag mismatch. Expected: %s, Got: %s (%.2f ms)", 
+                    entity_name, entity.tag or "nil", processing_time))
+            else
+                print(string.format("    WARNING: Failed to parse entity from: %s (%.2f ms)", 
+                    data_file.filename, processing_time))
+            end
+        end
+    end
+    
+    -- Calculate and display average processing time for this entity
+    if file_count > 0 then
+        local avg_time = total_processing_time / file_count
+        print(string.format("  Average processing time per page for %s: %.2f ms", entity_name, avg_time))
+        print(string.format("  Total processing time for %s: %.2f ms", entity_name, total_processing_time))
+    end
+    
+    return filesToWrite, total_processing_time, file_count
 end
 
 function generateSite()
+    print("luassg - Starting site generation...")
+    print("=====================================")
+    
+    local total_start_time = getTimeMs()
+    
     os.execute("mkdir -p ./output")
     
     -- Load constants once
+    print("Loading constants from ./data/CONST.xml...")
     local constants = parseConstants()
     
     -- Count constants properly
@@ -181,52 +342,100 @@ function generateSite()
     
     print("Loaded " .. const_count .. " constants from ./data/CONST.xml")
     
-    -- Collect all files to write asynchronously
-    local filesToWrite = {}
+    -- Read all templates
+    print("\nReading templates...")
+    local templates, template_count = readTemplates()
     
-    for template_file in io.popen("ls -- ./templates"):lines() do
-        local template_path = "./templates/" .. template_file
-        print("Processing template " .. template_path)
-        local template_f = io.open(template_path, "r")
-        if not template_f then
-            goto continue
-        end
-        local template = template_f:read("*a")
-        template_f:close()
-
-        local entity_type = template_file:gsub("%.html$", "")
-        local data_dir = "./data/" .. entity_type
-
-        os.execute("mkdir -p " .. data_dir)
-
-        local files = scandir(data_dir)
-        for _, data_file in ipairs(files) do
-            local entity_path = data_dir .. "/" .. data_file
-            local entity = parseSingleEntity(entity_path)
-            if entity and entity.tag == entity_type then
-                local output_filename = "./output/" .. entity_type .. "-" .. (entity.attrs.id or "unknown") .. ".html"
-                local output_content = render(template, entity, constants)
-                
-                -- Add to files to write asynchronously
-                table.insert(filesToWrite, {
-                    filename = output_filename,
-                    content = output_content
-                })
-                
-                print("Prepared for writing: " .. output_filename)
-            end
-        end
-        ::continue::
+    -- Get all entity directories
+    print("\nScanning entity directories...")
+    local entity_dirs = getEntityDirectories()
+    
+    print("Found " .. #entity_dirs .. " entity directories:")
+    for _, entity in ipairs(entity_dirs) do
+        print("  - " .. entity)
     end
     
-    -- Write all files asynchronously
-    if #filesToWrite > 0 then
-        print("\nWriting " .. #filesToWrite .. " files asynchronously...")
-        writeAsync(filesToWrite)
-        print("All files have been written!")
+    print("\nFound " .. template_count .. " templates:")
+    for template_name, template_data in pairs(templates) do
+        print("  - " .. template_name .. " (" .. template_data.filename .. ")")
+    end
+    
+    -- Collect all files to write
+    local allFilesToWrite = {}
+    local total_processing_time = 0
+    local total_pages = 0
+    
+    -- Process each entity directory
+    print("\nProcessing entities...")
+    for _, entity_name in ipairs(entity_dirs) do
+        -- Check if we have a template for this entity
+        local template = templates[entity_name]
+        if template then
+            print("\nProcessing " .. entity_name .. " with template: " .. template.filename)
+            
+            -- Process this entity type
+            local entityFiles, entity_time, entity_pages = processEntityType(entity_name, template, constants)
+            
+            -- Add to the main list
+            for _, file in ipairs(entityFiles) do
+                table.insert(allFilesToWrite, file)
+            end
+            
+            total_processing_time = total_processing_time + entity_time
+            total_pages = total_pages + entity_pages
+        else
+            print("\nWARNING: No template found for entity: " .. entity_name)
+        end
+    end
+    
+    -- Calculate overall statistics
+    local total_end_time = getTimeMs()
+    local total_generation_time = total_end_time - total_start_time
+    
+    print("\n" .. string.rep("=", 60))
+    print("GENERATION STATISTICS")
+    print(string.rep("=", 60))
+    
+    if total_pages > 0 then
+        local avg_processing_time = total_processing_time / total_pages
+        local file_write_time = 0
+        
+        -- Write all files asynchronously and measure time
+        if #allFilesToWrite > 0 then
+            print("\nWriting " .. #allFilesToWrite .. " files asynchronously...")
+            local write_start_time = getTimeMs()
+            writeAsync(allFilesToWrite)
+            local write_end_time = getTimeMs()
+            file_write_time = write_end_time - write_start_time
+            print("All files have been written!")
+            
+            -- List generated files
+            print("\nGenerated files:")
+            for _, file in ipairs(allFilesToWrite) do
+                print("  " .. file.filename)
+            end
+            
+            -- Print statistics
+            print("\n" .. string.rep("-", 60))
+            print(string.format("Total pages generated: %d", total_pages))
+            print(string.format("Total processing time: %.2f ms", total_processing_time))
+            print(string.format("Average processing time per page: %.2f ms", avg_processing_time))
+            print(string.format("File writing time: %.2f ms", file_write_time))
+            print(string.format("Total generation time: %.2f ms", total_generation_time))
+            print(string.rep("-", 60))
+            
+            -- Calculate and display performance metrics
+            if total_generation_time > 0 then
+                local pages_per_second = (total_pages / total_generation_time) * 1000
+                print(string.format("Performance: %.2f pages/second", pages_per_second))
+            end
+        end
     else
         print("No files to generate.")
     end
+    
+    print(string.rep("=", 60))
+    print("\nSite generation completed!")
 end
 
 generateSite()
