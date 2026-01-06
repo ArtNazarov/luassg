@@ -2,6 +2,10 @@
 
 Static site generator written with Lua
 
+## Screenshot
+
+![luassg](https://dl.dropbox.com/scl/fi/2s825rvu5r5pqxq7io87s/luassg.png?rlkey=i38mz2aggef0rsnw82n6x8sjt&st=yc5bfz0c)
+
 ## Templates
 
 Templates must be placed into `./templates` directory as .html files
