@@ -21,6 +21,32 @@ function dump(o, indent)
     end
 end
 
+-- Synchronous file write function
+local function writeFile(filename, content)
+    local file = io.open(filename, "w")
+    if file then
+        file:write(content)
+        file:close()
+    else
+        error("Could not open file: " .. filename)
+    end
+end
+
+-- Asynchronous file write function
+function writeAsync(files)
+    local co = {}
+
+    for _, file in ipairs(files) do
+        co[#co + 1] = coroutine.create(function()
+            writeFile(file.filename, file.content)
+        end)
+    end
+
+    for _, c in ipairs(co) do
+        coroutine.resume(c)
+    end
+end
+
 function parseConstants()
     local const_file = "./data/CONST.xml"
     local f = io.open(const_file, "r")
@@ -155,6 +181,9 @@ function generateSite()
     
     print("Loaded " .. const_count .. " constants from ./data/CONST.xml")
     
+    -- Collect all files to write asynchronously
+    local filesToWrite = {}
+    
     for template_file in io.popen("ls -- ./templates"):lines() do
         local template_path = "./templates/" .. template_file
         print("Processing template " .. template_path)
@@ -176,13 +205,27 @@ function generateSite()
             local entity = parseSingleEntity(entity_path)
             if entity and entity.tag == entity_type then
                 local output_filename = "./output/" .. entity_type .. "-" .. (entity.attrs.id or "unknown") .. ".html"
-                local output = io.open(output_filename, "w")
-                output:write(render(template, entity, constants))
-                output:close()
-                print("Generated: " .. output_filename)
+                local output_content = render(template, entity, constants)
+                
+                -- Add to files to write asynchronously
+                table.insert(filesToWrite, {
+                    filename = output_filename,
+                    content = output_content
+                })
+                
+                print("Prepared for writing: " .. output_filename)
             end
         end
         ::continue::
+    end
+    
+    -- Write all files asynchronously
+    if #filesToWrite > 0 then
+        print("\nWriting " .. #filesToWrite .. " files asynchronously...")
+        writeAsync(filesToWrite)
+        print("All files have been written!")
+    else
+        print("No files to generate.")
     end
 end
 
