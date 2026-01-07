@@ -6,6 +6,8 @@ Static site generator written with Lua
 
 ![luassg](https://dl.dropbox.com/scl/fi/2s825rvu5r5pqxq7io87s/luassg.png?rlkey=i38mz2aggef0rsnw82n6x8sjt&st=yc5bfz0c)
 
+![luassg-launcher](https://dl.dropbox.com/scl/fi/ej544bd301oif6yfuaxba/luassg_launcher.png?rlkey=0yickrz9gg1izx5tee9lt8ogm&st=2mqs6a2t)
+
 ## Two Implementations Available
 
 luassg comes with two implementations:
