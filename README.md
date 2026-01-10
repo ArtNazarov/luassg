@@ -2,7 +2,7 @@
 
 Static site generator written with Lua
 
-## Screenshot
+## Screenshots
 
 ![luassg](https://dl.dropbox.com/scl/fi/2s825rvu5r5pqxq7io87s/luassg.png?rlkey=i38mz2aggef0rsnw82n6x8sjt&st=yc5bfz0c)
 
@@ -60,14 +60,103 @@ luassg_launcher.lua → luassg_scanner.lua → (Multiple luassg_process_file.lua
    - Names files as `entity-id.html`
    - Handles file creation and error reporting
 
-6. **`luassg_process_file.lua`** - Complete Pipeline for Single File (NEW)
+6. **`luassg_process_file.lua`** - Complete Pipeline for Single File
    - Combines reader, substitution, and writer stages
    - Processes one XML file completely
    - Used for parallel processing mode
 
+## Templates
+
+Templates are HTML files stored in the `./templates/` directory. Each template corresponds to an entity type (folder name in `./data/`).
+
+### Template Example: `./templates/gallery.html`
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{gallery.title}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        .post {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>__CONST.SITENAME__</h1>
+    <div class="post">
+        <h1>{gallery.title}</h1>
+        <p>{gallery.description}</p>
+        <img alt="{gallery.alt}" width="88%" height="auto" src="{gallery.src}" />
+        <p>{gallery.comment}</p>
+    </div>
+    <p>template gallery.html</p>
+    <footer>__CONST.AUTHOR__</footer>
+</body>
+</html>
+```
+
+### Template Placeholders:
+- **Entity fields**: `{entity_name.field_name}` (e.g., `{gallery.title}`)
+- **Constants**: `__CONST.CONSTANT_NAME__` (e.g., `__CONST.SITENAME__`)
+
+## Content (XML Data Files)
+
+XML data files define the content for each page and are stored in entity-specific directories within `./data/`.
+
+### XML Example: `./data/gallery/gallery-37158403-3cfe-4922-92e2-46326f0eb571.xml`
+```xml
+<gallery id="37158403-3cfe-4922-92e2-46326f0eb571">
+    <title>The kitten</title>
+    <description>Some description</description>
+    <alt>Some alt text</alt>
+    <src>./images/kitten.jpg</src>
+    <comment>my comment</comment>
+</gallery>
+```
+
+### XML Structure:
+- **Root tag**: Must match the entity name (`gallery` in this example)
+- **`id` attribute**: Unique identifier for the entity
+- **Child elements**: Each becomes a field accessible via `{entity_name.field_name}`
+
+## Constants
+
+Global constants are defined in `./data/CONST.xml` and can be used across all templates.
+
+### Constants Example: `./data/CONST.xml`
+```xml
+<CONST>
+    <SITENAME>My Awesome Site</SITENAME>
+    <AUTHOR>John Doe</AUTHOR>
+    <YEAR>2026</YEAR>
+    <FOOTER_TEXT>All rights reserved</FOOTER_TEXT>
+</CONST>
+```
+
+### Using Constants in Templates:
+```html
+<footer>
+    © __CONST.YEAR__ __CONST.AUTHOR__ - __CONST.FOOTER_TEXT__
+</footer>
+```
+
 ## Parallel Processing Features
 
-The scanner now supports **parallel batch processing**:
+The scanner supports **parallel batch processing**:
 
 ### Key Features:
 - **Configurable batch size** - Process multiple files simultaneously
@@ -75,13 +164,6 @@ The scanner now supports **parallel batch processing**:
 - **Clean completion** - Waits for all processes before exiting
 - **Timeout handling** - Prevents hanging processes
 - **Output management** - No stray output in terminal
-
-### How Parallel Processing Works:
-1. Scanner finds all XML files across entity directories
-2. Files are grouped into batches (default: 2 files per batch)
-3. Each file in a batch is processed by a separate `luassg_process_file.lua` instance
-4. Scanner monitors all processes and waits for completion
-5. Results are displayed after all files are processed
 
 ### Configuration:
 Modify the `BATCH_SIZE` variable in `luassg_scanner.lua`:
@@ -123,54 +205,76 @@ For parallel processing, each `luassg_process_file.lua` instance:
 
 **Note**: Actual speedup depends on CPU cores, disk I/O, and file sizes.
 
-## Templates
+## File Structure
 
-Templates must be placed into `./templates` directory as .html files
-
-Name of template must be corresponding entity folders from directory `./data`
-
-So, template `./templates/product.html` used for `./data/product/product-someId.xml` file
-
-Use in the templates placeholders like ```{entity.fieldName}```
-
-## Constants
-
-Global constants can be defined in `./data/CONST.xml` file with the following format:
-
-```xml
-<CONST>
-    <SITENAME>My Awesome Site</SITENAME>
-    <AUTHOR>John Doe</AUTHOR>
-    <YEAR>2026</YEAR>
-    <FOOTER_TEXT>All rights reserved</FOOTER_TEXT>
-</CONST>
+```
+./
+├── luassg.lua                    # Monolithic version
+├── luassg_launcher.lua           # Pipeline orchestrator
+├── luassg_scanner.lua            # Directory scanner (with parallel processing)
+├── luassg_reader.lua             # XML file reader
+├── luassg_substitution.lua       # Template processor
+├── luassg_writer.lua             # HTML file writer
+├── luassg_process_file.lua       # Complete pipeline for single file
+├── data/
+│   ├── CONST.xml                 # Global constants
+│   ├── gallery/                  # Gallery entities
+│   │   └── gallery-37158403-3cfe-4922-92e2-46326f0eb571.xml
+│   ├── page/                     # Page entities
+│   ├── product/                  # Product entities
+│   └── longread/                 # Article entities
+├── templates/
+│   ├── gallery.html              # Gallery template
+│   ├── page.html                 # Page template
+│   ├── product.html              # Product template
+│   └── longread.html             # Article template
+└── output/                       # Generated HTML files
 ```
 
-Use constants in templates with double underscore syntax: `__CONST.CONSTNAME__`
+## Output Example
 
-Example in template:
+For the gallery example above, running luassg generates:
+
+**Generated File**: `./output/gallery-37158403-3cfe-4922-92e2-46326f0eb571.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The kitten</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        .post {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>My Awesome Site</h1>
+    <div class="post">
+        <h1>The kitten</h1>
+        <p>Some description</p>
+        <img alt="Some alt text" width="88%" height="auto" src="./images/kitten.jpg" />
+        <p>my comment</p>
+    </div>
+    <p>template gallery.html</p>
+    <footer>John Doe</footer>
+</body>
+</html>
 ```
-<footer>
-    © __CONST.YEAR__ __CONST.AUTHOR__ - __CONST.FOOTER_TEXT__
-</footer>
-```
-
-Constants are replaced before entity-specific values, so you can use them anywhere in your templates.
-
-## Content
-
-Pages must be stored in the directory `./data` as xml files like
-
-```xml
-<product id="firstProduct">
-    <name>Product 1</name>
-    <price>100</price>
-    <caption>Some title</caption>
-</product>
-```
-
-with name pattern entity-id.xml, so in the example above
-data must be saved to `./data/product/product-firstProduct.xml`
 
 ## Usage
 
@@ -184,7 +288,7 @@ lua luassg.lua
 lua luassg_launcher.lua
 ```
 
-Or use the helper commands:
+### Helper Commands:
 ```bash
 # Show help
 lua luassg_launcher.lua --help
@@ -193,10 +297,7 @@ lua luassg_launcher.lua --help
 lua luassg_launcher.lua --version
 ```
 
-Pages will be generated to the folder `./output`
-
-## Advanced Usage: Custom Batch Size
-
+### Advanced Usage: Custom Batch Size
 For large sites, adjust the parallel processing batch size:
 ```bash
 # Edit luassg_scanner.lua and change:
@@ -220,29 +321,6 @@ Both versions include error handling for:
 - Process timeout in parallel mode
 - Background process failures
 
-## File Structure
-
-```
-./
-├── luassg.lua                    # Monolithic version
-├── luassg_launcher.lua           # Pipeline orchestrator
-├── luassg_scanner.lua            # Directory scanner (with parallel processing)
-├── luassg_reader.lua             # XML file reader
-├── luassg_substitution.lua       # Template processor
-├── luassg_writer.lua             # HTML file writer
-├── luassg_process_file.lua       # Complete pipeline for single file (parallel mode)
-├── data/
-│   ├── CONST.xml                 # Global constants
-│   ├── page/                     # Page entities
-│   ├── product/                  # Product entities
-│   └── longread/                 # Article entities
-├── templates/
-│   ├── page.html                 # Page template
-│   ├── product.html              # Product template
-│   └── longread.html             # Article template
-└── output/                       # Generated HTML files
-```
-
 ## Monitoring Parallel Processing
 
 When using parallel processing, the scanner provides detailed feedback:
@@ -254,7 +332,7 @@ When using parallel processing, the scanner provides detailed feedback:
 
 ## GUI
 
-[GUI XML CRUD Application](https://github.com/ArtNazarov/entity_xml_crud_app)
+[GUI XML CRUD Application](https://github.com/ArtNazarov/entity_xml_crud_app) - A graphical interface for managing your XML content files.
 
 ## Author
 
