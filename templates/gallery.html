@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{gallery.title}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        .post {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>__CONST.SITENAME__</h1>
+    <div class="post">
+        <h1>{gallery.title}</h1>
+        <p>{gallery.description}</p>
+        <img alt="{gallery.alt}" width="88%" height="auto" src="{gallery.src}" />
+	<p>{gallery.comment}</p>
+    </div>
+    <p>template gallery.html</p>
+    <footer>__CONST.AUTHOR__</footer>
+</body>
+</html>
