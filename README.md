@@ -252,6 +252,10 @@ When using parallel processing, the scanner provides detailed feedback:
 - Lists all generated files
 - Handles cleanup of temporary files
 
+## GUI
+
+[GUI XML CRUD Application](https://github.com/ArtNazarov/entity_xml_crud_app)
+
 ## Author
 
 Nazarov A.A., Russia, Orenburg, 2026
