@@ -1,5 +1,6 @@
 <product id="secondProduct">
-<name>Товар II</name>
-<price>800</price>
-<caption>Другое описание</caption>
+	<name>Товар II</name>
+	<category>product</category>
+	<price>800</price>
+	<caption>Другое описание</caption>
 </product>

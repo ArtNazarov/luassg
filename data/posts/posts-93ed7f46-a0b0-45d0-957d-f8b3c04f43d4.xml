@@ -1,5 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <posts id="93ed7f46-a0b0-45d0-957d-f8b3c04f43d4">
 	<title>Second post</title>
+	<category>posts</category>
 	<message>Maecenas aliquet tortor enim, quis aliquam elit aliquam non. Phasellus consectetur elementum nunc et egestas. Integer et ligula leo. Integer nunc ligula, laoreet id ligula faucibus, elementum sagittis ex. Fusce dictum ipsum a sapien tristique efficitur. Aliquam fermentum a est vitae imperdiet. Cras auctor iaculis odio, id feugiat purus vehicula in. Vivamus euismod iaculis placerat. Aliquam efficitur malesuada metus eu porttitor. Donec eu molestie risus. Duis non dui leo. Mauris laoreet dignissim lobortis. Phasellus lacus leo, tincidunt sit amet efficitur eget, fermentum vitae tortor. </message>
 </posts>

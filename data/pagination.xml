@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pagination>
+    <indexPageCategory>
+        <useCategory>longread</useCategory>
+    </indexPageCategory>
+    <generatedHeadingPattern>Category: {categoryTitle} - Page {page} of {totalPages}</generatedHeadingPattern>
+    <listPathPattern>category-{category}-page-{page}.html</listPathPattern>
+    <fieldAsTitle>name</fieldAsTitle>
+    <fieldAsCategory>category</fieldAsCategory>
+    <templateList>./templates/pagination/categoryTemplate.html</templateList>
+    <itemsPerPage>5</itemsPerPage>
+    <createPagingFor>
+        <includeCategory>product</includeCategory>
+        <includeCategory>page</includeCategory>
+        <includeCategory>quotes</includeCategory>
+        <includeCategory>posts</includeCategory>
+        <includeCategory>news</includeCategory>
+        <includeCategory>gallery</includeCategory>
+    </createPagingFor>
+    <sitemap>
+        <mapFileName>./sitemap.xml</mapFileName>
+        <mapGeneratedPattern>Sitemap - {totalPagesCount} Pages</mapGeneratedPattern>
+        <mapTemplate>./templates/pagination/sitemapTemplate.html</mapTemplate>
+        <mapSaveAs>./output/sitemap.html</mapSaveAs>  <!-- Note: ./output/ prefix -->
+        <mapItemsPerPage>20</mapItemsPerPage>
+    </sitemap>
+</pagination>

@@ -1,5 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <news id="4f0a2f34-901a-4a90-a208-6b8c3b231542">
 	<caption>News II</caption>
+	<category>news</category>
 	<longread>Donec tristique, augue quis rutrum blandit, ipsum nunc rhoncus turpis, nec commodo elit nibh eget nulla. Sed faucibus sapien metus, in mattis diam blandit eu. Vivamus semper, justo ac scelerisque ultrices, diam lorem commodo quam, id interdum massa ante quis erat. Proin euismod ante quis ipsum molestie, a dictum libero facilisis. In ut nisi tincidunt, feugiat leo at, pharetra orci. Etiam vitae sem ac quam vehicula iaculis viverra non neque. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Donec placerat vehicula eros at venenatis. Fusce mollis, neque nec ullamcorper commodo, sapien est finibus tortor, sed suscipit ligula ligula ac odio. Aliquam erat volutpat. </longread>
 </news>

@@ -1,4 +1,5 @@
 <longread id="otherArticle">
 	<titleofarticle>Страница заметки</titleofarticle>
-<textofarticle>Какой-то текст заметки</textofarticle>
+	<category>longread</category>
+	<textofarticle>Какой-то текст заметки</textofarticle>
 </longread>
