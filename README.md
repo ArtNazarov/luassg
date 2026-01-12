@@ -334,6 +334,300 @@ When using parallel processing, the scanner provides detailed feedback:
 
 [GUI XML CRUD Application](https://github.com/ArtNazarov/entity_xml_crud_app) - A graphical interface for managing your XML content files.
 
+
+# Pagination Feature
+
+luassg now includes a powerful pagination system for organizing content into category pages, generating index pages, and creating sitemaps.
+
+## Overview
+
+The pagination feature (`luassg_pagination.lua`) automatically:
+- Groups entities by category
+- Generates paginated category pages
+- Creates a main index page
+- Builds both HTML and XML sitemaps
+- Supports category inclusion/exclusion
+
+## File Structure
+
+```
+./
+├── luassg_pagination.lua          # Pagination generator
+├── data/
+│   ├── pagination.xml             # Pagination configuration
+│   └── ... (other XML data files)
+├── templates/
+│   └── pagination/
+│       ├── categoryTemplate.html  # Template for category pages
+│       ├── indexTemplate.html     # Template for index page (optional)
+│       └── sitemapTemplate.html   # Template for HTML sitemap
+└── output/
+    └── ... (generated pagination files)
+```
+
+## Configuration File: `pagination.xml`
+
+Create `./data/pagination.xml` to configure pagination settings:
+
+```xml
+<pagination>
+    <itemsPerPage>10</itemsPerPage>
+    <siteUrl>https://example.com</siteUrl>
+    <indexCategory>longread</indexCategory>
+    <include>
+        <category>quotes</category>
+        <category>product</category>
+        <category>gallery</category>
+        <category>page</category>
+        <category>posts</category>
+        <category>news</category>
+    </include>
+    <exclude>
+        <category>private</category>
+    </exclude>
+</pagination>
+```
+
+### Configuration Options:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `itemsPerPage` | Number of items per category page | 10 |
+| `siteUrl` | Base URL for absolute links in sitemap | `https://example.com` |
+| `indexCategory` | Category to use as main index content | `longread` |
+| `include` | List of categories to generate pages for | All categories |
+| `exclude` | Categories to skip | None |
+
+## Category Template
+
+Create `./templates/pagination/categoryTemplate.html`:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>__CONST.SITENAME__ - {category} (Page {currentPage})</title>
+    <style>
+        /* Your styles here */
+        .pagination { margin: 20px 0; }
+        .page-item { display: inline-block; margin: 0 5px; }
+        .current-page { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>{category} - Page {currentPage} of {totalPages}</h1>
+    
+    <!-- Entity list -->
+    <div class="entity-list">
+        {entities}
+    </div>
+    
+    <!-- Pagination controls -->
+    <div class="pagination">
+        {pagination}
+    </div>
+    
+    <!-- Navigation -->
+    <div class="navigation">
+        <a href="index.html">Home</a> | 
+        <a href="sitemap.html">Sitemap</a>
+    </div>
+</body>
+</html>
+```
+
+### Category Template Placeholders:
+
+| Placeholder | Description |
+|-------------|-------------|
+| `{category}` | Category name |
+| `{currentPage}` | Current page number |
+| `{totalPages}` | Total pages for this category |
+| `{entities}` | HTML list of entities |
+| `{pagination}` | Pagination navigation links |
+| `__CONST.*__` | Global constants |
+
+## Sitemap Template
+
+Create `./templates/pagination/sitemapTemplate.html`:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>__CONST.SITENAME__ - Sitemap</title>
+</head>
+<body>
+    <h1>Site Map</h1>
+    <ul>
+        <li><a href="index.html">Home</a></li>
+        {categories}
+    </ul>
+</body>
+</html>
+```
+
+## Generated Files
+
+The pagination generator creates:
+
+### 1. Category Pages
+```
+./output/category-{category}-page-{page}.html
+```
+Example: `category-news-page-1.html`
+
+### 2. Index Page
+```
+./output/index.html
+```
+Main site index using content from the `indexCategory`
+
+### 3. Sitemaps
+```
+./output/sitemap.html          # Human-readable HTML sitemap
+./sitemap.xml                  # XML sitemap for search engines
+```
+
+## XML Sitemap Format
+
+The XML sitemap follows the sitemaps.org protocol:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://example.com/index.html</loc>
+        <lastmod>2026-01-12</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+    </url>
+    <!-- Additional URLs -->
+</urlset>
+```
+
+## Usage
+
+Run the pagination generator:
+
+```bash
+lua luassg_pagination.lua
+```
+
+### Output Example:
+```
+luassg_pagination - Generating paginated lists and sitemap...
+=============================================================
+Parsing pagination settings from ./data/pagination.xml...
+Loading constants from ./data/CONST.xml...
+Loaded 3 constants
+Checking templates...
+  Found category template: ./templates/pagination/categoryTemplate.html
+  Found sitemap template: ./templates/pagination/sitemapTemplate.html
+
+Collecting entity data from XML files...
+Found 14 entities in XML files
+Grouping entities by category...
+Found 7 categories
+  - quotes: 1 entities
+  - product: 2 entities
+  - gallery: 1 entities
+  - longread: 2 entities
+  - page: 2 entities
+  - posts: 3 entities
+  - news: 3 entities
+
+Generating category pages...
+  Processing category: quotes (1 entities)
+    Generated: category-quotes-page-1.html
+  Processing category: product (2 entities)
+    Generated: category-product-page-1.html
+  ...
+
+Generating index page...
+  Generated index page: ./output/index.html
+
+Generating sitemap...
+  Generated sitemap: ./output/sitemap.html
+  Generated XML sitemap: ./sitemap.xml
+
+============================================================
+PAGINATION GENERATION COMPLETED
+============================================================
+Total time: 18.47 ms
+Total entities processed: 14
+Total categories: 7
+Total category pages generated: 6
+```
+
+## Integration with Main Pipeline
+
+The pagination feature works independently but complements the main luassg pipeline:
+
+1. **First**: Run the main generator to create individual entity pages
+   ```bash
+   lua luassg_launcher.lua
+   ```
+
+2. **Then**: Run the pagination generator to create category lists
+   ```bash
+   lua luassg_pagination.lua
+   ```
+
+## Customizing Entity Display
+
+In the category template, the `{entities}` placeholder is replaced with formatted HTML. You can customize this in the source code by modifying the `formatEntityForList()` function in `luassg_pagination.lua`.
+
+## Performance
+
+The pagination generator is optimized for speed:
+- Processes all entities in a single pass
+- Uses efficient XML parsing
+- Generates minimal file I/O operations
+- Typically completes in under 20ms for 50+ entities
+
+## Benefits
+
+- **Automatic organization**: Groups content by category
+- **SEO-friendly**: Creates XML sitemaps for search engines
+- **Navigation**: Built-in pagination controls
+- **Flexible**: Configurable inclusion/exclusion lists
+- **Fast**: Minimal overhead, parallel-ready design
+
+## Troubleshooting
+
+If categories aren't appearing:
+1. Check that the category name matches the folder name in `./data/`
+2. Verify the category is listed in the `<include>` section of `pagination.xml`
+3. Ensure there are XML files in the category directory
+
+If templates aren't found:
+1. Create the `./templates/pagination/` directory
+2. Ensure `categoryTemplate.html` and `sitemapTemplate.html` exist
+3. Check file permissions
+
+## Example Workflow
+
+```bash
+# Generate individual entity pages
+lua luassg_launcher.lua
+
+# Generate category pages and sitemaps
+lua luassg_pagination.lua
+
+# Your site is now ready with:
+# - Individual entity pages: ./output/entity-id.html
+# - Category pages: ./output/category-*.html
+# - Index page: ./output/index.html
+# - Sitemaps: ./output/sitemap.html and ./sitemap.xml
+```
+
+The pagination feature extends luassg into a complete static site solution with proper content organization and search engine optimization.
+
 ## Author
 
 Nazarov A.A., Russia, Orenburg, 2026
