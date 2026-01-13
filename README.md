@@ -758,16 +758,16 @@ end
 
 ### 4. **File Operations (Reading External Data)**
 ```html
-<div class="stats">
+<div class="some_data">
 [lua]
--- Read and display file statistics
-local stats_file = io.open("stats.txt", "r")
-if stats_file then
-    local content = stats_file:read("*a")
-    stats_file:close()
-    print("Total visits: " .. (content:match("%d+") or "0"))
+local file = io.open("example.txt", "r")
+if file then
+    for line in file:lines() do
+        print(line)
+    end
+    file:close()
 else
-    print("Statistics not available")
+    print("Cannot open file.")
 end
 [/lua]
 </div>
