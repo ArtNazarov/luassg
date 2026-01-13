@@ -1,4 +1,16 @@
 -- luassg_process_file.lua - Complete pipeline for a single XML file
+-- Load Lua evaluation module
+local evalsubst
+local success, err = pcall(function()
+    evalsubst = require("lua_evalsubst")
+end)
+
+if not success then
+    print("ERROR: Failed to load lua_evalsubst module: " .. (err or "unknown"))
+    print("Make sure lua_evalsubst.lua is in the same directory or Lua path")
+    os.exit(1)
+end
+
 local args = {...}
 
 if #args < 6 then
@@ -209,22 +221,103 @@ for attr, value in pairs(entity.attrs) do
 end
 print("  Replaced " .. attr_count .. " attributes")
 
--- Step 3: Write HTML file (Writer stage)
+-- Step 3: Process Lua fragments
+print("  Processing Lua fragments...")
+local fragment_start_time = os.clock() * 1000
+
+-- Count fragments before processing
+local fragment_count = 0
+for _ in html:gmatch("%[lua%]") do
+    fragment_count = fragment_count + 1
+end
+
+local processed_html = html
+local fragment_errors = 0
+local fragment_processing_time = 0
+
+if fragment_count > 0 then
+    print("    Found " .. fragment_count .. " Lua fragment(s) to process")
+    
+    -- Process the fragments
+    processed_html, processed_fragments, fragment_errors = evalsubst.evaluateLuaFragments(html)
+    
+    local fragment_end_time = os.clock() * 1000
+    fragment_processing_time = fragment_end_time - fragment_start_time
+    
+    local success_count = fragment_count - fragment_errors
+    print("    Processed " .. fragment_count .. " Lua fragment(s): " .. 
+          success_count .. " successful, " .. fragment_errors .. " errors")
+    print(string.format("    Fragment processing time: %.2f ms", fragment_processing_time))
+    
+    -- Check for Lua execution errors in the output
+    if fragment_errors > 0 then
+        print("    WARNING: Some Lua fragments had errors. Check the generated HTML for error markers.")
+        -- Show a preview of errors
+        local error_locations = 0
+        for error_msg in processed_html:gmatch("%[ERROR:[^%]]+%]") do
+            if error_locations < 3 then  -- Show first 3 errors
+                print("      - " .. error_msg:sub(1, 100) .. (error_msg:len() > 100 and "..." or ""))
+            end
+            error_locations = error_locations + 1
+        end
+        if error_locations > 3 then
+            print("      ... and " .. (error_locations - 3) .. " more errors")
+        end
+    end
+else
+    print("    No Lua fragments found in the template")
+end
+
+-- Step 4: Write HTML file (Writer stage)
 os.execute("mkdir -p ./output 2>/dev/null")
 local output_filename = "./output/" .. final_entity_name .. "-" .. final_id .. ".html"
 local output_file = io.open(output_filename, "w")
 
 if output_file then
-    output_file:write(html)
+    output_file:write(processed_html)
     output_file:close()
 
     local end_time = os.clock() * 1000
-    local processing_time = end_time - start_time
+    local total_processing_time = end_time - start_time
+    local substitution_stage_time = total_processing_time - fragment_processing_time
 
-    print("  ✓ Written: " .. output_filename .. string.format(" (%.2f ms)", processing_time))
-    print("  Summary: " .. const_count .. " constants, " .. field_count .. " fields, " .. attr_count .. " attributes")
+    -- Build detailed status message
+    local status_parts = {}
+    table.insert(status_parts, string.format("(%.2f ms total", total_processing_time))
+    table.insert(status_parts, string.format("subst: %.2f ms", substitution_stage_time))
+    
+    if fragment_count > 0 then
+        table.insert(status_parts, string.format("lua: %.2f ms", fragment_processing_time))
+        table.insert(status_parts, string.format("%d frags", fragment_count))
+        if fragment_errors > 0 then
+            table.insert(status_parts, string.format("%d errs", fragment_errors))
+        end
+    end
+    
+    local status_msg = table.concat(status_parts, ", ") .. ")"
+    
+    print("  ✓ Written: " .. output_filename .. " " .. status_msg)
+    print("  Summary: " .. const_count .. " constants, " .. field_count .. " fields, " .. 
+          attr_count .. " attributes" .. 
+          (fragment_count > 0 and ", " .. fragment_count .. " Lua fragments" .. 
+           (fragment_errors > 0 and " (" .. fragment_errors .. " errors)" or "") or ""))
+    
+    -- Log summary for pipeline coordination
+    local summary_file = io.open("/tmp/luassg_process_summary.log", "a")
+    if summary_file then
+        summary_file:write(final_entity_name .. "-" .. final_id .. 
+                          "|" .. const_count .. 
+                          "|" .. field_count .. 
+                          "|" .. attr_count .. 
+                          "|" .. fragment_count .. 
+                          "|" .. fragment_errors .. 
+                          "|" .. string.format("%.2f", total_processing_time) .. 
+                          "|" .. string.format("%.2f", fragment_processing_time) .. "\n")
+        summary_file:close()
+    end
+    
     return true
 else
     print("  ✗ ERROR: Could not write file: " .. output_filename)
     return false
-end
+end 

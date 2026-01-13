@@ -628,6 +628,198 @@ lua luassg_pagination.lua
 
 The pagination feature extends luassg into a complete static site solution with proper content organization and search engine optimization.
 
+# Lua Fragment Processing Feature
+
+## Overview
+The Static Site Generator now supports dynamic Lua code execution within templates using `[lua]...[/lua]` tags. This feature allows you to embed executable Lua code directly in your HTML templates, which gets evaluated during site generation and replaced with the output.
+
+## How It Works
+1. **Pattern**: Find all occurrences of `[lua]some lua code[/lua]` in the template
+2. **Execution**: Each Lua fragment is written to a temporary file and executed
+3. **Substitution**: The fragment is replaced with the stdout output of the Lua code
+4. **Cleanup**: Temporary files are immediately removed after execution
+
+## Example Usage
+
+### Basic Template with Lua Code:
+```html
+<!-- templates/blog.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{blog.title}</title>
+</head>
+<body>
+    <h1>{blog.title}</h1>
+    
+    <!-- Static content from XML -->
+    <div class="content">{blog.content}</div>
+    
+    <!-- Dynamic Lua-generated content -->
+    <div class="sidebar">
+        <h3>Generated Content:</h3>
+        <p>Current date: [lua]print(os.date("%Y-%m-%d %H:%M:%S"))[/lua]</p>
+        <p>Random number: [lua]print(math.random(1, 100))[/lua]</p>
+        <p>Items in list: [lua]
+            local items = {"Apple", "Banana", "Cherry"}
+            print(#items)
+        [/lua]</p>
+    </div>
+    
+    <!-- Complex Lua logic -->
+    <div class="footer">
+        <p>[lua]
+            -- Calculate reading time
+            local word_count = #({blog.content}:gsub("[%s%p]", ""))
+            local reading_time = math.ceil(word_count / 200)
+            print("Estimated reading time: " .. reading_time .. " minute" .. (reading_time > 1 and "s" or ""))
+        [/lua]</p>
+    </div>
+</body>
+</html>
+```
+
+### Corresponding XML Data:
+```xml
+<!-- data/blog/post-1.xml -->
+<blog id="post-1">
+    <title>My First Blog Post</title>
+    <content>
+        This is the content of my first blog post. It contains several paragraphs
+        of text that will be processed by the static site generator...
+    </content>
+</blog>
+```
+
+### Generated Output:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My First Blog Post</title>
+</head>
+<body>
+    <h1>My First Blog Post</h1>
+    
+    <div class="content">
+        This is the content of my first blog post. It contains several paragraphs
+        of text that will be processed by the static site generator...
+    </div>
+    
+    <div class="sidebar">
+        <h3>Generated Content:</h3>
+        <p>Current date: 2024-01-15 14:30:45</p>
+        <p>Random number: 42</p>
+        <p>Items in list: 3</p>
+    </div>
+    
+    <div class="footer">
+        <p>Estimated reading time: 2 minutes</p>
+    </div>
+</body>
+</html>
+```
+
+## Advanced Examples
+
+### 1. **Conditional Content**
+```html
+[lua]
+if {blog.category} == "tutorial" then
+    print('<div class="difficulty">Difficulty: Advanced</div>')
+else
+    print('<div class="difficulty">Difficulty: Beginner</div>')
+end
+[/lua]
+```
+
+### 2. **Loops and Iteration**
+```html
+<ul>
+[lua]
+local tags = {"lua", "programming", "static-site"}
+for i, tag in ipairs(tags) do
+    print('<li><a href="/tag/' .. tag .. '">#' .. tag .. '</a></li>')
+end
+[/lua]
+</ul>
+```
+
+### 3. **Mathematical Calculations**
+```html
+<p>Discount calculation: [lua]
+    local price = 99.99
+    local discount = 0.15
+    local final_price = price * (1 - discount)
+    print(string.format("Original: $%.2f, Final: $%.2f (%.0f%% off)", 
+          price, final_price, discount * 100))
+[/lua]</p>
+```
+
+### 4. **File Operations (Reading External Data)**
+```html
+<div class="stats">
+[lua]
+-- Read and display file statistics
+local stats_file = io.open("stats.txt", "r")
+if stats_file then
+    local content = stats_file:read("*a")
+    stats_file:close()
+    print("Total visits: " .. (content:match("%d+") or "0"))
+else
+    print("Statistics not available")
+end
+[/lua]
+</div>
+```
+
+### 5. **Date Manipulation**
+```html
+<p>Post published: {blog.date}</p>
+<p>Days since publication: [lua]
+    local pub_date = os.time({year=2024, month=1, day=1})
+    local now = os.time()
+    local diff = os.difftime(now, pub_date)
+    local days = math.floor(diff / (24 * 60 * 60))
+    print(days .. " days ago")
+[/lua]</p>
+```
+
+## Error Handling
+
+If a Lua fragment contains an error, it will be replaced with an error message in the output:
+
+```html
+<!-- Template -->
+<p>Result: [lua]print(10 / 0)[/lua]</p>
+
+<!-- Generated Output -->
+<p>Result: [ERROR: Lua execution failed: attempt to divide by zero, exit code: 1]</p>
+```
+
+## Performance Considerations
+
+- Each Lua fragment executes in its own process
+- Fragments are processed sequentially within each file
+- Complex operations should be kept minimal for performance
+- Consider caching results for expensive operations
+
+## Security Notes
+
+- Lua fragments execute with the same permissions as the generator
+- Avoid using user-provided content in Lua fragments
+- Consider sanitizing inputs when using data from XML files
+- Temporary files are created with unique names and deleted immediately
+
+## Integration with Existing Features
+
+Lua fragments work seamlessly with:
+- **Constants**: `__CONST.SITE_NAME__` can be used inside Lua code
+- **Entity Fields**: `{blog.title}` values are already substituted before Lua execution
+- **Attributes**: `{blog.id}` is available in Lua context after substitution
+
+This feature adds powerful dynamic capabilities to your static site while maintaining the benefits of pre-rendered HTML.
+
 ## Author
 
 Nazarov A.A., Russia, Orenburg, 2026
