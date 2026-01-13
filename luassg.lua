@@ -18,6 +18,7 @@ function showHelp()
     print("  Templates are stored in ./templates/ directory as .html files.")
     print("  Data files are stored in ./data/[entity]/ directory as .xml files.")
     print("  Constants can be defined in ./data/CONST.xml file.")
+    print("  Supports dynamic Lua code fragments in templates: [lua]code[/lua]")
     print()
     print("Example:")
     print("  lua luassg.lua           # Generate the site")
@@ -28,10 +29,14 @@ function showHelp()
 end
 
 function showVersion()
-    print("luassg - Static Site Generator v1.0")
+    print("luassg - Static Site Generator v1.1")
     print("=====================================")
+    print("Added support for Lua code fragments in templates")
     authorInfo()
 end
+
+-- Load Lua evaluation module
+local evalsubst = require("lua_evalsubst")
 
 -- Check for command line arguments
 local args = {...}
@@ -245,6 +250,8 @@ local function processEntityType(entity_name, template, constants)
     local filesToWrite = {}
     local total_processing_time = 0
     local file_count = 0
+    local total_fragments = 0
+    local total_errors = 0
     
     print("Processing entity: " .. entity_name)
     
@@ -283,6 +290,12 @@ local function processEntityType(entity_name, template, constants)
                 html = html:gsub(placeholder, value)
             end
             
+            -- Process Lua fragments in the HTML
+            local processed_html, fragment_count, error_count = evalsubst.evaluateLuaFragments(html)
+            
+            total_fragments = total_fragments + fragment_count
+            total_errors = total_errors + error_count
+            
             local output_filename = "./output/" .. entity_name .. "-" .. (entity.attrs.id or "unknown") .. ".html"
             
             local file_end_time = getTimeMs()
@@ -290,11 +303,19 @@ local function processEntityType(entity_name, template, constants)
             total_processing_time = total_processing_time + processing_time
             file_count = file_count + 1
             
-            print(string.format("    Generating: %s (%.2f ms)", output_filename, processing_time))
+            local fragment_info = ""
+            if fragment_count > 0 then
+                fragment_info = string.format(", %d Lua fragment(s)", fragment_count)
+                if error_count > 0 then
+                    fragment_info = fragment_info .. string.format(" (%d error(s))", error_count)
+                end
+            end
+            
+            print(string.format("    Generating: %s (%.2f ms%s)", output_filename, processing_time, fragment_info))
             
             table.insert(filesToWrite, {
                 filename = output_filename,
-                content = html
+                content = processed_html
             })
         else
             local file_end_time = getTimeMs()
@@ -312,6 +333,11 @@ local function processEntityType(entity_name, template, constants)
         end
     end
     
+    -- Report Lua fragment statistics for this entity
+    if total_fragments > 0 then
+        print(string.format("  Lua fragments for %s: %d total, %d errors", entity_name, total_fragments, total_errors))
+    end
+    
     -- Calculate and display average processing time for this entity
     if file_count > 0 then
         local avg_time = total_processing_time / file_count
@@ -319,7 +345,7 @@ local function processEntityType(entity_name, template, constants)
         print(string.format("  Total processing time for %s: %.2f ms", entity_name, total_processing_time))
     end
     
-    return filesToWrite, total_processing_time, file_count
+    return filesToWrite, total_processing_time, file_count, total_fragments, total_errors
 end
 
 function generateSite()
@@ -364,6 +390,8 @@ function generateSite()
     local allFilesToWrite = {}
     local total_processing_time = 0
     local total_pages = 0
+    local total_lua_fragments = 0
+    local total_lua_errors = 0
     
     -- Process each entity directory
     print("\nProcessing entities...")
@@ -374,7 +402,8 @@ function generateSite()
             print("\nProcessing " .. entity_name .. " with template: " .. template.filename)
             
             -- Process this entity type
-            local entityFiles, entity_time, entity_pages = processEntityType(entity_name, template, constants)
+            local entityFiles, entity_time, entity_pages, entity_fragments, entity_errors = 
+                processEntityType(entity_name, template, constants)
             
             -- Add to the main list
             for _, file in ipairs(entityFiles) do
@@ -383,6 +412,8 @@ function generateSite()
             
             total_processing_time = total_processing_time + entity_time
             total_pages = total_pages + entity_pages
+            total_lua_fragments = total_lua_fragments + entity_fragments
+            total_lua_errors = total_lua_errors + entity_errors
         else
             print("\nWARNING: No template found for entity: " .. entity_name)
         end
@@ -418,6 +449,10 @@ function generateSite()
             -- Print statistics
             print("\n" .. string.rep("-", 60))
             print(string.format("Total pages generated: %d", total_pages))
+            print(string.format("Total Lua fragments processed: %d", total_lua_fragments))
+            if total_lua_errors > 0 then
+                print(string.format("Lua fragment errors: %d", total_lua_errors))
+            end
             print(string.format("Total processing time: %.2f ms", total_processing_time))
             print(string.format("Average processing time per page: %.2f ms", avg_processing_time))
             print(string.format("File writing time: %.2f ms", file_write_time))
